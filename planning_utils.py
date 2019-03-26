@@ -23,6 +23,8 @@ def create_grid(data, drone_altitude, safety_distance):
     north_size = int(np.ceil(north_max - north_min))
     east_size = int(np.ceil(east_max - east_min))
 
+    # Initialize an empty list for Voronoi points
+    points = []
     # Initialize an empty grid
     grid = np.zeros((north_size, east_size))
 
@@ -37,8 +39,10 @@ def create_grid(data, drone_altitude, safety_distance):
                 int(np.clip(east + d_east + safety_distance - east_min, 0, east_size-1)),
             ]
             grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = 1
+            # add center of obstacles to points list
+            points.append([north - north_min, east - east_min])
 
-    return grid, int(north_min), int(east_min)
+    return grid, points, int(north_min), int(east_min)
 
 
 # Assume all actions cost the same.
@@ -87,6 +91,8 @@ def valid_actions(grid, current_node):
 
     return valid_actions
 
+def heuristic(position, goal_position):
+    return np.linalg.norm(np.array(position) - np.array(goal_position))
 
 def a_star(grid, h, start, goal):
 
@@ -139,8 +145,52 @@ def a_star(grid, h, start, goal):
         print('**********************') 
     return path[::-1], path_cost
 
+def a_star_graph(graph, h, start, goal):
+    """Modified A* to work with NetworkX graphs."""
+    
+    path = []
+    queue = PriorityQueue()
+    queue.put((0, start))
+    visited = set(start)
 
+    branch = {}
+    found = False
 
-def heuristic(position, goal_position):
-    return np.linalg.norm(np.array(position) - np.array(goal_position))
+    while not queue.empty():
+        item = queue.get()
+        current_cost = item[0]
+        current_node = item[1]
 
+        if current_node == goal:
+            print('Found a path.')
+            found = True
+            break
+        else:
+            for next_node in graph[current_node]:
+                cost = graph.edges[current_node, next_node]['weight']
+                new_cost = current_cost + cost + h(next_node, goal)
+                
+                if next_node not in visited:                
+                    visited.add(next_node)               
+                    queue.put((new_cost, next_node))
+                    
+                    branch[next_node] = (new_cost, current_node)
+             
+    path = []
+    path_cost = 0
+    if found:
+        
+        # retrace steps
+        path = []
+        n = goal
+        path_cost = branch[n][0]
+        while branch[n][1] != start:
+            path.append(branch[n][1])
+            n = branch[n][1]
+        path.append(branch[n][1])
+    else:
+        print('**********************')
+        print('Failed to find a path!')
+        print('**********************')
+
+    return path[::-1], path_cost
