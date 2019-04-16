@@ -31,16 +31,18 @@ def create_grid(data, drone_altitude, safety_distance):
     # Populate the grid with obstacles
     for i in range(data.shape[0]):
         north, east, alt, d_north, d_east, d_alt = data[i, :]
-        if alt + d_alt + safety_distance > drone_altitude:
+        h = float(alt + d_alt + safety_distance)
+        if h > drone_altitude:
             obstacle = [
                 int(np.clip(north - d_north - safety_distance - north_min, 0, north_size-1)),
                 int(np.clip(north + d_north + safety_distance - north_min, 0, north_size-1)),
                 int(np.clip(east - d_east - safety_distance - east_min, 0, east_size-1)),
                 int(np.clip(east + d_east + safety_distance - east_min, 0, east_size-1)),
             ]
+            # Creation of a 2.5D grid
             grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = 1
             # add center of obstacles to points list
-            points.append([north - north_min, east - east_min])
+            points.append([north - north_min, east - east_min, h])
 
     return grid, points, int(north_min), int(east_min)
 
@@ -59,6 +61,10 @@ class Action(Enum):
     EAST = (0, 1, 1)
     NORTH = (-1, 0, 1)
     SOUTH = (1, 0, 1)
+    NORTH_WEST = (-1, -1, np.sqrt(2))
+    NORTH_EAST = (-1, 1, np.sqrt(2))
+    SOUTH_WEST = (1, -1, np.sqrt(2))
+    SOUTH_EAST = (1, 1, np.sqrt(2))
 
     @property
     def cost(self):
@@ -88,6 +94,15 @@ def valid_actions(grid, current_node):
         valid_actions.remove(Action.WEST)
     if y + 1 > m or grid[x, y + 1] == 1:
         valid_actions.remove(Action.EAST)
+    
+    if (x - 1 < 0 or y - 1 < 0) or grid[x - 1, y - 1] == 1:
+        valid_actions.remove(Action.NORTH_WEST)
+    if (x - 1 < 0 or y + 1 > m) or grid[x - 1, y + 1] == 1:
+        valid_actions.remove(Action.NORTH_EAST)
+    if (x + 1 > n or y - 1 < 0) or grid[x + 1, y - 1] == 1:
+        valid_actions.remove(Action.SOUTH_WEST)
+    if (x + 1 > n or y + 1 > m) or grid[x + 1, y + 1] == 1:
+        valid_actions.remove(Action.SOUTH_EAST)
 
     return valid_actions
 
@@ -105,8 +120,11 @@ def a_star(grid, h, start, goal):
     branch = {}
     found = False
     
+    #print('Start A*. Queue: {0}'.format(queue))
+    
     while not queue.empty():
         item = queue.get()
+        #print('---> Item: {0}, Queue: {1}'.format(item, queue))
         current_node = item[1]
         if current_node == start:
             current_cost = 0.0
@@ -114,10 +132,11 @@ def a_star(grid, h, start, goal):
             current_cost = branch[current_node][0]
             
         if current_node == goal:        
-            print('Found a path.')
+            #print('Found a path.')
             found = True
             break
         else:
+            #print('Valid actions: {0}'.format(valid_actions(grid, current_node)))
             for action in valid_actions(grid, current_node):
                 # get the tuple representation
                 da = action.delta
@@ -125,7 +144,8 @@ def a_star(grid, h, start, goal):
                 branch_cost = current_cost + action.cost
                 queue_cost = branch_cost + h(next_node, goal)
                 
-                if next_node not in visited:                
+                if next_node not in visited:
+                    #print('Adding next node: {0}'.format(next_node))
                     visited.add(next_node)               
                     branch[next_node] = (branch_cost, current_node, action)
                     queue.put((queue_cost, next_node))

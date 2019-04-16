@@ -51,7 +51,7 @@ def extract_polygons(data):
     return polygons
 class Sampler:
 
-    def __init__(self, data):
+    def __init__(self, data, zmin=0, zmax=20):
         self._polygons = extract_polygons(data)
         self._xmin = np.min(data[:, 0] - data[:, 3])
         self._xmax = np.max(data[:, 0] + data[:, 3])
@@ -59,9 +59,9 @@ class Sampler:
         self._ymin = np.min(data[:, 1] - data[:, 4])
         self._ymax = np.max(data[:, 1] + data[:, 4])
 
-        self._zmin = 0
+        self._zmin = zmin
         # limit z-axis
-        self._zmax = 20
+        self._zmax = zmax
         # Record maximum polygon dimension in the xy plane
         # multiply by 2 since given sizes are half widths
         # This is still rather clunky but will allow us to 
