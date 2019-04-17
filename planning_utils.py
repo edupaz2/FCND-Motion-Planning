@@ -32,17 +32,17 @@ def create_grid(data, drone_altitude, safety_distance):
     for i in range(data.shape[0]):
         north, east, alt, d_north, d_east, d_alt = data[i, :]
         h = float(alt + d_alt + safety_distance)
-        if h > drone_altitude:
-            obstacle = [
-                int(np.clip(north - d_north - safety_distance - north_min, 0, north_size-1)),
-                int(np.clip(north + d_north + safety_distance - north_min, 0, north_size-1)),
-                int(np.clip(east - d_east - safety_distance - east_min, 0, east_size-1)),
-                int(np.clip(east + d_east + safety_distance - east_min, 0, east_size-1)),
-            ]
-            # Creation of a 2.5D grid
-            grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = 1
-            # add center of obstacles to points list
-            points.append([north - north_min, east - east_min, h])
+        #if h > drone_altitude:
+        obstacle = [
+            int(np.clip(north - d_north - safety_distance - north_min, 0, north_size-1)),
+            int(np.clip(north + d_north + safety_distance - north_min, 0, north_size-1)),
+            int(np.clip(east - d_east - safety_distance - east_min, 0, east_size-1)),
+            int(np.clip(east + d_east + safety_distance - east_min, 0, east_size-1)),
+        ]
+        # Creation of a 2.5D grid
+        grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = h
+        # add center of obstacles to points list
+        points.append([north - north_min, east - east_min, h])
 
     return grid, points, int(north_min), int(east_min)
 
