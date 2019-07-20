@@ -49,24 +49,26 @@ Here is a visual of the waypoints planned at the `motion_planning.py` ![Grid Pat
 We precompute a flying node graph, from the grid data, for later used when finding a path.
 
 #### Medial Axis grid: [notebook](./research_medial_axis_grid.ipynb)
-Medial Axis with 848241 nodes, shape (921, 921)
-Medial Axis took 0.5097260475158691 seconds to build
-![Medial Axis Grid A* search](./misc/medial_axis_grid.png)
+- Medial Axis with 848241 nodes, shape (921, 921)
+- Medial Axis took 0.5097260475158691 seconds to build
+
+![Medial Axis Grid](./misc/medial_axis_grid.png)
+![Medial Axis Grid A* search](./misc/medial_axis_grid.astar.png)
 
 #### Random Sampling: [notebook](./research_random_sampling.ipynb)
-Grid dimensions:  (921, 921)
-Original nodes 2013
-Graph nodes:  1972
-Graph edges:  8683
+- Grid dimensions:  (921, 921)
+- Original nodes 2013
+- Graph nodes:  1972
+- Graph edges:  8683
 
 ![Random Sampling Graph](./misc/random_sampling.png)
 ![Random Sampling Graph A* search](./misc/random_sampling.astar.png)
 
 #### Voronoi graph: [notebook](./research_voronoi.ipynb)
-Grid dimensions:  (921, 921)
-Original nodes:  5858
-Graph nodes:  3243
-Graph edges:  7277
+- Grid dimensions:  (921, 921)
+- Original nodes:  5858
+- Graph nodes:  3243
+- Graph edges:  7277
 
 ![Voronoi Graph](./misc/voronoi.png)
 ![Voronoi Graph A* search](./misc/voronoi.astar.png)
