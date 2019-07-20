@@ -45,22 +45,27 @@ Here is a visual of the waypoints planned at the `motion_planning.py` ![Grid Pat
 
 ### Implementing Your Path Planning Algorithm
 
+### 0. Preflight step: precompute a flying node graph
+We precompute a flying node graph, from the grid data, for later used when finding a path.
+
+#### Medial Axis graph: [notebook](./research_medial_axis.ipynb)
+Medial Axis with 848241 nodes, shape (921, 921)
+Medial Axis took 0.5097260475158691 seconds to build
+
+#### Prune Medial Axis graph: [notebook](./research_medial_axis_prune.ipynb)
+#### Random Sampling: [notebook](./research_random_sampling.ipynb)
+#### Voronoi graph: [notebook](./research_voronoi.ipynb)
+
+For research purposes several notebook have been used: TODO
+
 #### 1. Set your global home position
-Here students should read the first line of the csv file, extract lat0 and lon0 as floating point values and use the self.set_home_position() method to set global home. Explain briefly how you accomplished this in your code.
-
-
-And here is a lovely picture of our downtown San Francisco environment from above!
-![Map of SF](./misc/map.png)
+We read the global home location from the first line of the colliders.csv file and set that position as global home (self.set_home_position()) in [source](./motion_planning.py#L205)
 
 #### 2. Set your current local position
-Here as long as you successfully determine your local position relative to global home you'll be all set. Explain briefly how you accomplished this in your code.
-
-
-Meanwhile, here's a picture of me flying through the trees!
-![Forest Flying](./misc/in_the_trees.png)
+We determine the drone local position relative to global home calling the function ```global_to_local``` in [source](./motion_planning.py#L210)
 
 #### 3. Set grid start position from local position
-This is another step in adding flexibility to the start location. As long as it works you're good to go!
+Another step for adding flexibility to the start location at [source](./motion_planning.py#L232)
 
 #### 4. Set grid goal position from geodetic coords
 This step is to add flexibility to the desired goal location. Should be able to choose any (lat, lon) within the map and have it rendered to a goal location on the grid.
