@@ -48,15 +48,28 @@ Here is a visual of the waypoints planned at the `motion_planning.py` ![Grid Pat
 ### 0. Preflight step: precompute a flying node graph
 We precompute a flying node graph, from the grid data, for later used when finding a path.
 
-#### Medial Axis graph: [notebook](./research_medial_axis.ipynb)
+#### Medial Axis grid: [notebook](./research_medial_axis_grid.ipynb)
 Medial Axis with 848241 nodes, shape (921, 921)
 Medial Axis took 0.5097260475158691 seconds to build
+![Medial Axis Grid A* search](./misc/medial_axis_grid.png)
 
-#### Prune Medial Axis graph: [notebook](./research_medial_axis_prune.ipynb)
 #### Random Sampling: [notebook](./research_random_sampling.ipynb)
-#### Voronoi graph: [notebook](./research_voronoi.ipynb)
+Grid dimensions:  (921, 921)
+Original nodes 2013
+Graph nodes:  1972
+Graph edges:  8683
 
-For research purposes several notebook have been used: TODO
+![Random Sampling Graph](./misc/random_sampling.png)
+![Random Sampling Graph A* search](./misc/random_sampling.astar.png)
+
+#### Voronoi graph: [notebook](./research_voronoi.ipynb)
+Grid dimensions:  (921, 921)
+Original nodes:  5858
+Graph nodes:  3243
+Graph edges:  7277
+
+![Voronoi Graph](./misc/voronoi.png)
+![Voronoi Graph A* search](./misc/voronoi.astar.png)
 
 #### 1. Set your global home position
 We read the global home location from the first line of the colliders.csv file and set that position as global home (self.set_home_position()) in [source](./motion_planning.py#L205)

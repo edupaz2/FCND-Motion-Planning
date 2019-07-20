@@ -167,8 +167,7 @@ def a_star(grid, h, start, goal):
         else:              
             current_cost = branch[current_node][0]
             
-        if current_node == goal:        
-            #print('Found a path.')
+        if current_node == goal:
             found = True
             break
         else:
@@ -195,10 +194,7 @@ def a_star(grid, h, start, goal):
             path.append(branch[n][1])
             n = branch[n][1]
         path.append(branch[n][1])
-    else:
-        print('**********************')
-        print('Failed to find a path!')
-        print('**********************') 
+ 
     return path[::-1], path_cost
 
 def a_star_graph(graph, h, start, goal):
@@ -218,7 +214,6 @@ def a_star_graph(graph, h, start, goal):
         current_node = item[1]
 
         if current_node == goal:
-            print('Found a path.')
             found = True
             break
         else:
@@ -244,9 +239,5 @@ def a_star_graph(graph, h, start, goal):
             path.append(branch[n][1])
             n = branch[n][1]
         path.append(branch[n][1])
-    else:
-        print('**********************')
-        print('Failed to find a path!')
-        print('**********************')
 
     return path[::-1], path_cost
