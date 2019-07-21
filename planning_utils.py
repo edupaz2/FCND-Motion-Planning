@@ -1,6 +1,10 @@
 from enum import Enum
 from queue import PriorityQueue
 import numpy as np
+import pickle
+
+FLYING_ALTITUDE = 30
+SAFETY_DISTANCE = 3
 
 def create_grid_no_height(data, drone_altitude, safety_distance):
     """
@@ -59,8 +63,8 @@ def create_grid(data, drone_altitude, safety_distance):
     north_size = int(np.ceil(north_max - north_min))
     east_size = int(np.ceil(east_max - east_min))
 
-    # Initialize an empty list for Voronoi points
-    points = []
+    # Initialize an empty list of centers for Voronoi points
+    centers = []
     # Initialize an empty grid
     grid = np.zeros((north_size, east_size))
 
@@ -77,10 +81,10 @@ def create_grid(data, drone_altitude, safety_distance):
         ]
         # Creation of a 2.5D grid
         grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = h
-        # add center of obstacles to points list
-        points.append([north - north_min, east - east_min, h])
+        # add center of obstacles to centers list
+        centers.append([north - north_min, east - east_min, h])
 
-    return grid, points, int(north_min), int(east_min)
+    return grid, centers, int(north_min), int(east_min)
 
 
 # Assume all actions cost the same.
