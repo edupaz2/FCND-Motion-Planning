@@ -82,29 +82,26 @@ We are loading a precomputed node graph as the first step.
 NOTE: Loading the graph inside the Drone class was painfully slow.
 
 #### 1. Set your global home position
-We read the global home location from the first line of the colliders.csv file and set that position as global home (self.set_home_position()) in [source](./motion_planning.py#L141)
+We read the global home location from the first line of the colliders.csv file and set that position as global home (self.set_home_position()) in [source](./motion_planning.py#L143)
 
 #### 2. Set your current local position
-We determine the drone local position relative to global home calling the function ```global_to_local``` in [source](./motion_planning.py#L144)
+We determine the drone local position relative to global home calling the function ```global_to_local``` in [source](./motion_planning.py#L146)
 
 #### 3. Set grid start position from local position
-Another step for adding flexibility to the start location, now we are selecting the start position where the drone is located at and finding the closest graph node to that drone location, [source](./motion_planning.py#L157)
+Another step for adding flexibility to the start location, now we are selecting the start position where the drone is located at and finding the closest graph node to that drone location, [source](./motion_planning.py#L156)
 
 #### 4. Set grid goal position from geodetic coords
-To add more flexibility in choosing the goal location, now it's a random node of the graph, [source](./motion_planning.py#L180)
+To add more flexibility in choosing the goal location, now it's a random node of the graph, [source](./motion_planning.py#L175)
 
 #### 5. Modify A* to include diagonal motion (or replace A* altogether)
-We are using A* for graphs [source](./motion_planning.py#L159), calling the function ```a_star_graph``` from [planning_utils.py](./planning_utils.py)
+We are using A* for graphs [source](./motion_planning.py#L180), calling the function ```a_star_graph``` from [planning_utils.py](./planning_utils.py)
 
 #### 6. Cull waypoints 
-After calculating A* path, we get rid of unnecessary waypoints (those that meet bresenham conditions with previous neighbours), [source](./motion_planning.py#L163)
-
+The path simplification is being done in the planning phase. We first calculate the A* path from start to goal, and then we remove the unnecessary waypoints (those that meet bresenham conditions with previous neighbours), [source](./motion_planning.py#L196)
 
 ### Execute the flight
 #### 1. Does it work?
 It works!
-
-![Simulator](./misc/simulator.gif)
 
 ### Double check that you've met specifications for each of the [rubric](https://review.udacity.com/#!/rubrics/1534/view) points.
   
