@@ -33,22 +33,29 @@ class Poly:
 
 
 
-def extract_polygons(data):
+def extract_polygons(data, safety_distance=0):
 
     polygons = []
     for i in range(data.shape[0]):
         north, east, alt, d_north, d_east, d_alt = data[i, :]
         
-        obstacle = [north - d_north, north + d_north, east - d_east, east + d_east]
+        # Corners:
+        # [3] obstacle[1][2] ------- [2] obstacle[1][3]
+        #         |                          |
+        #         |                          |
+        #         |                          |
+        # [0] obstacle[0][2] ------- [1] obstacle[0][3]
+        #
+        obstacle = [north - d_north - safety_distance, north + d_north + safety_distance, east - d_east - safety_distance, east + d_east + safety_distance]
         corners = [(obstacle[0], obstacle[2]), (obstacle[0], obstacle[3]), (obstacle[1], obstacle[3]), (obstacle[1], obstacle[2])]
-        
-        # TODO: Compute the height of the polygon
+
         height = alt + d_alt
 
         p = Poly(corners, height)
         polygons.append(p)
 
     return polygons
+
 class Sampler:
 
     def __init__(self, data, zmin=0, zmax=20):

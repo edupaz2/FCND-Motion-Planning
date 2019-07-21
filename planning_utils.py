@@ -41,7 +41,7 @@ def create_grid_no_height(data, drone_altitude, safety_distance):
             ]
             grid[obstacle[0]:obstacle[1]+1, obstacle[2]:obstacle[3]+1] = 1
 
-    return grid
+    return grid, int(north_min), int(east_min)
 
 def create_grid(data, drone_altitude, safety_distance):
     """
@@ -72,7 +72,6 @@ def create_grid(data, drone_altitude, safety_distance):
     for i in range(data.shape[0]):
         north, east, alt, d_north, d_east, d_alt = data[i, :]
         h = float(alt + d_alt + safety_distance)
-        #if h > drone_altitude:
         obstacle = [
             int(np.clip(north - d_north - safety_distance - north_min, 0, north_size-1)),
             int(np.clip(north + d_north + safety_distance - north_min, 0, north_size-1)),

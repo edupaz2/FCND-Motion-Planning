@@ -49,7 +49,7 @@ Here is a visual of the waypoints planned at the `motion_planning.py` ![Grid Pat
 We precompute a flying node graph, from the grid data, for later used when finding a path.
 
 #### Voronoi graph: [notebook](./research_voronoi.ipynb)
-- Original Voronoi graph (k=10)
+- Original Voronoi graph (k=5)
   - Graph nodes:  3672
   - Graph edges: 16830
   - Grid dimensions:  (921, 921)

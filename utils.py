@@ -68,10 +68,10 @@ def remove_unnecessary_nodes(Gr, Cg, safety_height):
 	Gr.remove_nodes_from(nodes_to_remove)
 	return Gr
 
-def print_info(Gr, Cg):
+def print_info(Gr, Cg, north_offset, east_offset):
 	print('Graph nodes: %5d' % len(Gr.nodes))
 	print('Graph edges: %5d' % len(Gr.edges))
-	print('Grid dimensions: ', Cg.shape)
+	print('Grid dimensions {0}, north_offset: {1}, east_offset: {2} '.format(Cg.shape, north_offset, east_offset))
 
 def load_graph_from_pickle(pkl_filename):
 	print('Loading {0} graph'.format(pkl_filename))
@@ -80,10 +80,12 @@ def load_graph_from_pickle(pkl_filename):
 
 		Gr = dist_pickle['graph']
 		Cg = dist_pickle['collision_grid']
+		north_offset = dist_pickle['north_offset']
+		east_offset = dist_pickle['east_offset']
 
-	return Gr, Cg
+	return Gr, Cg, north_offset, east_offset
 
-def save_graph_to_pickle(Gr, Cg, pkl_filename):
+def save_graph_to_pickle(Gr, Cg, north_offset, east_offset, pkl_filename):
 	try:
 		with open(pkl_filename, 'wb+') as pfile:
 			print('Saving to pickle file', pkl_filename)
@@ -91,70 +93,192 @@ def save_graph_to_pickle(Gr, Cg, pkl_filename):
 			{
 				'graph': Gr,
 				'collision_grid': Cg,
+				'north_offset' : north_offset,
+				'east_offset' : east_offset,
 			},
 			pfile, pickle.HIGHEST_PROTOCOL)
 	except Exception as e:
 		print('Unable to save data to ', pkl_filename, ':', e)
 
-def visualize_graph(Gr, Cg, figsize_=(10,10)):
+def visualize_graph(Gr, Cg, nmin=0, emin=0):
 	# Plot it up!
-	fig = plt.figure(figsize=figsize_)
+	fig = plt.figure(figsize=(10,10))
 	plt.imshow(Cg, origin='lower', cmap='Greys') 
 
 	# Draw edges in green
-	for (n1, n2) in Gr.edges:
-		plt.plot([n1[1], n2[1]], [n1[0], n2[0]], 'green', alpha=1)
+	for (n1, n2) in list(Gr.edges)[0:1]:
+		plt.plot([n1[1] - emin, n2[1] - emin], [n1[0] - nmin, n2[0] - nmin], 'green', alpha=1)
 
 	# Draw connected nodes in red
-	for n1 in Gr.nodes:
-	    plt.scatter(n1[1], n1[0], c='red')
+	for n1 in list(Gr.nodes)[0:1]:
+		print(n1)
+		plt.scatter(n1[1] - emin, n1[0] - nmin, c='red')
+
+	plt.scatter(0 - emin, 0 - nmin, c='blue') # (0,0)
+	plt.scatter(emin - emin, nmin - nmin , c='green') # Lowest point
 
 	plt.xlabel('EAST')
 	plt.ylabel('NORTH')
 	plt.show()
 
+import sys
+def perform_astar(Gr, Cg, nmin=0, emin=0):
 
-def perform_astar(Gr, Cg, figsize_=(10,10), nmin=0, emin=0):
-	rnd = np.random.randint(len(Gr.nodes))
-	start = list(Gr.nodes)[rnd]
-	print('Start: ', rnd)
-	rnd = np.random.randint(len(Gr.nodes))
-	print('Goal: ', rnd)
-	goal = list(Gr.nodes)[rnd]
+	#drone_location = (-emin, -nmin, 5.0) # map coordinates
+	drone_location = (445.04762260615826, 315.94609723985195, 5.0)
+	print('Find Start node from {0}'.format(drone_location))
+	nearest_start = None
+	closest_distance = sys.float_info.max
+	for n in Gr.nodes:
+		# heuristic is the Euclidean distance:
+		distance = heuristic(drone_location, n)
+		if distance < closest_distance:
+			closest_distance = distance
+			nearest_start = n
+
+	if nearest_start == None:
+		print('Error while getting closest starting node')
+		return
+	print('Found starting node = {0}'.format(nearest_start))
+
+	##########
+	
+	goal_location = (240.7685, 360.76114, 5.0) # map coordinates
+	print('Find Goal node from {0}'.format(goal_location))
+	nearest_goal = None
+	closest_distance = sys.float_info.max
+	for n in Gr.nodes:
+		# heuristic is the Euclidean distance:
+		distance = heuristic(goal_location, n)
+		if distance < closest_distance:
+			closest_distance = distance
+			nearest_goal = n
+
+	################
+	start = nearest_start
+	print('Start: ', start)
+	goal = nearest_goal
+	print('Goal: ', goal)
 
 	path, cost = a_star_graph(Gr, heuristic, start, goal)
 	print(len(path), path)
+	if len(path) == 0:
+		return
+
+	waypoints = [[p[0], p[1], p[2], 0] for p in path]
 
 	print("start")
 
-	fig = plt.figure(figsize=figsize_)
+	fig = plt.figure(figsize=(10,10))
 	plt.imshow(Cg, cmap='Greys', origin='lower')
 
-	path_pairs = zip(path[:-1], path[1:])
+	path_pairs = zip(waypoints[:-1], waypoints[1:])
 	for (n1, n2) in path_pairs:
-		plt.plot([n1[1] - emin, n2[1] - emin], [n1[0] - nmin, n2[0] - nmin], 'green')
+		plt.plot([n1[1], n2[1]], [n1[0], n2[0]], 'green')
 
-	plt.xlabel('NORTH')
-	plt.ylabel('EAST')
+	plt.scatter(drone_location[0], drone_location[1], c='blue') # (0,0)
+	plt.scatter(emin - emin, nmin - nmin , c='green') # Lowest point
+	plt.scatter(100, 0, c='purple') # (0,0)
+
+	plt.xlabel('EAST')
+	plt.ylabel('NORTH')
 	plt.show()
 
+def create_graph_from_voronoi(voronoi_graph, grid, k=10):
+    g = nx.Graph()
+    nodes = tuple(map(tuple, voronoi_graph.vertices))
+    tree = KDTree(nodes)
+    # Check each edge from graph.ridge_vertices for collision
+    for n1 in nodes:
+        # for each node connect try to connect to k nearest nodes
+        idxs = tree.query([n1], k, return_distance=False)[0]
+        for idx in idxs:
+            n2 = nodes[idx]
+            if n2 == n1:
+                continue
 
+            hit = False
+            cells = list(bresenham(int(n1[0]), int(n1[1]), int(n2[0]), int(n2[1])))
+            for c in cells:
+                # First check if we're off the map
+                if np.amin(c) < 0 or c[0] >= grid.shape[0] or c[1] >= grid.shape[1]:
+                    hit = True
+                    break
+                # Next check if we're in collision
+                if grid[c[0], c[1]] >= FLYING_ALTITUDE + SAFETY_DISTANCE:
+                    hit = True
+                    break
+            # If the edge does not hit on obstacle
+            # add it to the list
+            if not hit:
+                dist = LA.norm(np.array(n2) - np.array(n1))
+                g.add_edge((n1[0], n1[1], FLYING_ALTITUDE), (n2[0], n2[1], FLYING_ALTITUDE), weight=dist)
+
+    return g, tree
+
+from planning_utils import create_grid
+from scipy.spatial import Voronoi
+import numpy.linalg as LA
+from sklearn.neighbors import KDTree
+from bresenham import bresenham
 if __name__== "__main__":
-	print('Voronoi')
-	# Unit testing of functions in the file
-	Gr, Cg = load_graph_from_pickle('graph.voronoi.raw.p')
-	print_info(Gr, Cg)
+	test_case = 1
+	if test_case == 1:
+		print('Voronoi')
+		# Unit testing of functions in the file
+		Gr, Cg, no, eo = load_graph_from_pickle('graph.voronoi.raw.p')
+		print_info(Gr, Cg, no, eo)
 
-	#visualize_graph(Gr, Cg)
+		visualize_graph(Gr, Cg)
 
-	Gr = remove_unconnected_subgraphs(Gr)
-	print_info(Gr, Cg)
+		Gr = remove_unconnected_subgraphs(Gr)
+		print_info(Gr, Cg, no, eo)
 
-	Gr = remove_unnecessary_nodes(Gr, Cg, FLYING_ALTITUDE+SAFETY_DISTANCE)
-	print_info(Gr, Cg)
+		Gr = remove_unnecessary_nodes(Gr, Cg, FLYING_ALTITUDE+SAFETY_DISTANCE)
+		print_info(Gr, Cg, no, eo)
 
-	#visualize_graph(Gr, Cg)
+		#visualize_graph(Gr, Cg)
 
-	save_graph_to_pickle(Gr, Cg, 'graph.voronoi.p')
-	perform_astar(Gr, Cg)
+		save_graph_to_pickle(Gr, Cg, no, eo, 'graph.voronoi.p')
+		perform_astar(Gr, Cg, no, eo)
+
+	elif test_case == 2:
+		Gr, Cg, no, eo = load_graph_from_pickle('graph.voronoi.p')
+		print_info(Gr, Cg, no, eo)
+		
+		# Plot it up!
+		fig = plt.figure(figsize=(10,10))
+		plt.imshow(Cg, origin='lower', cmap='Greys') 
+
+		# Draw edges in green
+		#for (n1, n2) in Gr.edges:
+		#	plt.plot([n1[1], n2[1]], [n1[0], n2[0]], 'green', alpha=1)
+
+		# Draw connected nodes in red
+		for n1 in Gr.nodes:
+		    plt.scatter(n1[1], n1[0], c='red')
+
+		plt.scatter(0, 0, c='blue')
+
+		plt.xlabel('EAST')
+		plt.ylabel('NORTH')
+		plt.show()
+	elif test_case == 3:
+		filename = 'colliders.csv'
+		data = np.loadtxt(filename, delimiter=',', dtype='Float64', skiprows=2)
+
+		safety_distance = SAFETY_DISTANCE
+
+		print('Create grid')
+		Cg, centers, north_offset, east_offset = create_grid(data, FLYING_ALTITUDE, SAFETY_DISTANCE)
+		np_centers = np.array(centers)
+		print('Create Voronoi')
+		voronoi_graph = Voronoi(np_centers[:,:-1])
+		print('Create Graph')
+		Gr, tree = create_graph_from_voronoi(voronoi_graph, Cg)
+
+		print_info(Gr, Cg, north_offset, east_offset)
+
+		save_graph_to_pickle(Gr, Cg, north_offset, east_offset, 'graph.voronoi.raw.p')
+		visualize_graph(Gr, Cg)
 
