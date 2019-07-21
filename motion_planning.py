@@ -1,20 +1,18 @@
 import argparse
 import time
+import sys
 import msgpack
 from enum import Enum, auto
 
 import numpy as np
 
-from planning_utils import a_star, heuristic, create_grid
+from planning_utils import a_star_graph, heuristic
 from udacidrone import Drone
 from udacidrone.connection import MavlinkConnection
 from udacidrone.messaging import MsgID
 from udacidrone.frame_utils import global_to_local
 
-from sampling import Sampler
-import numpy.linalg as LA
-from sklearn.neighbors import KDTree
-
+import pickle
 
 class States(Enum):
     MANUAL = auto()
@@ -25,16 +23,28 @@ class States(Enum):
     DISARMING = auto()
     PLANNING = auto()
 
+def precompute_graph():
+    print('Precompute Graph')
+    t0 = time.time()
+    # Load precomputed Voronoi Graph
+    #pkl_filename = 'graph.voronoi.p'
+    pkl_filename = 'graph.random_sampling.p'
+    with open(pkl_filename, "rb") as pfile:
+        dist_pickle = pickle.load(pfile)
+        g = dist_pickle['graph']
+        print('Graph with {0} nodes and {1} edges took {2} secs'.format(len(g.nodes), len(g.edges), time.time()-t0))
+        return g
 
 class MotionPlanning(Drone):
 
-    def __init__(self, connection):
+    def __init__(self, connection, graph):
         super().__init__(connection)
 
         self.target_position = np.array([0.0, 0.0, 0.0])
         self.waypoints = []
         self.in_mission = True
         self.check_state = {}
+        self.graph = graph
 
         # initial state
         self.flight_state = States.MANUAL
@@ -47,6 +57,8 @@ class MotionPlanning(Drone):
     def local_position_callback(self):
         if self.flight_state == States.TAKEOFF:
             if -1.0 * self.local_position[2] > 0.95 * self.target_position[2]:
+                # send waypoints to sim (this is just for visualization of waypoints)
+                #self.send_waypoints()
                 self.waypoint_transition()
         elif self.flight_state == States.WAYPOINT:
             if np.linalg.norm(self.target_position[0:2] - self.local_position[0:2]) < 1.0:
@@ -76,125 +88,49 @@ class MotionPlanning(Drone):
                     self.manual_transition()
 
     def arming_transition(self):
-        self.flight_state = States.ARMING
         print("arming transition")
-        self.arm()
         self.take_control()
+        self.arm()
+        self.flight_state = States.ARMING
 
     def takeoff_transition(self):
-        self.flight_state = States.TAKEOFF
-        print("takeoff transition")
+        print("takeoff transition to ", self.target_position[2])
         self.takeoff(self.target_position[2])
+        self.flight_state = States.TAKEOFF
 
     def waypoint_transition(self):
-        self.flight_state = States.WAYPOINT
         print("waypoint transition")
         self.target_position = self.waypoints.pop(0)
         print('target position', self.target_position)
         self.cmd_position(self.target_position[0], self.target_position[1], self.target_position[2], self.target_position[3])
+        self.flight_state = States.WAYPOINT
 
     def landing_transition(self):
-        self.flight_state = States.LANDING
         print("landing transition")
         self.land()
+        self.flight_state = States.LANDING
 
     def disarming_transition(self):
-        self.flight_state = States.DISARMING
         print("disarm transition")
         self.disarm()
         self.release_control()
+        self.flight_state = States.DISARMING
 
     def manual_transition(self):
-        self.flight_state = States.MANUAL
         print("manual transition")
         self.stop()
         self.in_mission = False
+        self.flight_state = States.MANUAL
 
     def send_waypoints(self):
         print("Sending waypoints to simulator ...")
         data = msgpack.dumps(self.waypoints)
         self.connection._master.write(data)
 
-
-    def can_connect(self, n1, n2):
-        l = LineString([n1, n2])
-        for p in polygons:
-            if p.crosses(l) and p.height >= min(n1[2], n2[2]):
-                return False
-        return True
-
-    def create_graph(self, nodes, k):
-        g = nx.Graph()
-        tree = KDTree(nodes)
-        for n1 in nodes:
-            # for each node connect try to connect to k nearest nodes
-            idxs = tree.query([n1], k, return_distance=False)[0]
-            
-            for idx in idxs:
-                n2 = nodes[idx]
-                if n2 == n1:
-                    continue
-                    
-                if can_connect(n1, n2):
-                    g.add_edge(n1, n2, weight=1)
-        return g
-
-    def a_star_for_graphs(self, graph, heuristic, start, goal):
-        """Modified A* to work with NetworkX graphs."""
-        
-        path = []
-        queue = PriorityQueue()
-        queue.put((0, start))
-        visited = set(start)
-
-        branch = {}
-        found = False
-        
-        while not queue.empty():
-            item = queue.get()
-            current_cost = item[0]
-            current_node = item[1]
-
-            if current_node == goal:        
-                print('Found a path.')
-                found = True
-                break
-            else:
-                for next_node in graph[current_node]:
-                    cost = graph.edges[current_node, next_node]['weight']
-                    new_cost = current_cost + cost + heuristic(next_node, goal)
-                    
-                    if next_node not in visited:                
-                        visited.add(next_node)               
-                        queue.put((new_cost, next_node))
-                        
-                        branch[next_node] = (new_cost, current_node)
-                 
-        path = []
-        path_cost = 0
-        if found:
-            
-            # retrace steps
-            path = []
-            n = goal
-            path_cost = branch[n][0]
-            while branch[n][1] != start:
-                path.append(branch[n][1])
-                n = branch[n][1]
-            path.append(branch[n][1])
-                
-        return path[::-1], path_cost
-
     def plan_path(self):
-        self.flight_state = States.PLANNING
         print("Searching for a path ...")
-        TARGET_ALTITUDE = 5
+        TARGET_ALTITUDE = 5.0
         SAFETY_DISTANCE = 5
-
-        #self.target_position[2] = TARGET_ALTITUDE
-
-        print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
-                                                                         self.local_position))
 
         # read lat0, lon0 from colliders into floating point values
         with open('colliders.csv') as f:
@@ -204,72 +140,68 @@ class MotionPlanning(Drone):
             # set home position to (lon0, lat0, 0)
             self.set_home_position(lon0, lat0, 0)  # set the current location to be the home position
 
-        # TODO: retrieve current global position
-        # global_position = [self.longitude, self.latitude, self.altitude]
-        # convert to current local position using global_to_local()
+        # Convert drone global position to local position (relative to global home) using global_to_local()
         local_position = global_to_local(self.global_position, self.global_home)
 
         print('global home {0}, position {1}, local position {2}'.format(self.global_home, self.global_position,
                                                                          self.local_position))
-        # Read in obstacle map
-        data = np.loadtxt('colliders.csv', delimiter=',', dtype='Float64', skiprows=2)
-        
-        print('Sampling')
-        t0 = time.time()
-        sampler = Sampler(data)
-        polygons = sampler.polygons
-        nodes = sampler.sample(500)
-        print('Sampling took {0} for {1}'.format(time.time()-t0, len(nodes)))
-        print('****')
-        print('Creating graph')
-        t0 = time.time()
-        g = self.create_graph(nodes, 10)
-        print('graph took {0} seconds to build'.format(time.time()-t0))
-        print('Number of edges: ', len(g.edges))
+
+        # Load precomputed graph
+        print('Loading graph {0}'.format(len(self.graph.nodes)))
+
+        # Set grid start position at our current drone global position
+        drone_location = (self.local_position[0], self.local_position[1], TARGET_ALTITUDE)
+        print('Finding the nearest start node')
+
+        # Select the nearest node closest to the drone location
+        nearest_start = None
+        closest_distance = sys.float_info.max
+        for n in self.graph.nodes:
+            # heuristic is the Euclidean distance:
+            distance = heuristic(drone_location, n)
+            if distance < closest_distance:
+                closest_distance = distance
+                nearest_start = n
+
+        if nearest_start == None:
+            print('Error while getting closest starting node')
+            return
+        print('Found starting node = {0}'.format(nearest_start))
+
+        self.target_position[2] = TARGET_ALTITUDE
+
+        # Select a random goal node
+        rnd_goal = np.random.randint(len(self.graph.nodes))
+        goal = list(self.graph.nodes)[rnd_goal]
+        print('Selecting random goal: ', rnd_goal)
+
         print('****')
         print("A*")
-        #start = list(g.nodes)[0]
-        start = (self.longitude, self.latitude, TARGET_ALTITUDE)
-        k = np.random.randint(len(g.nodes))
-        print(k, len(g.nodes))
-        goal = list(g.nodes)[k]
+        path, cost = a_star_graph(self.graph, heuristic, nearest_start, goal)
+        print('A* from {0} to {1} with a length of: {2}'.format(nearest_start, goal, len(path)))
 
-        path, cost = self.a_star_for_graphs(g, heuristic, start, goal)
-        print('A* took {0}, length: {1} path: {2}'.format(len(path), path))
+        # Remember to set the Altitude, waypoints are higher
+        # Cull path: eliminate unnecessary points
+        #waypoints = [path[0]]
+        #idx = 0
+        #while idx < len(path):
+            
+
 
         # Convert path to waypoints
         waypoints = [[p[0], p[1], p[2], 0] for p in path]
+
+        # Define two waypoints with heading = 0 for both
+        #wp1 = [n1, e1, a1, 0]
+        #wp2 = [n2, e2, a2, 0]
+        # Set heading of wp2 based on relative position to wp1
+        #wp2[3] = np.arctan2((wp2[1]-wp1[1]), (wp2[0]-wp1[0]))
+
+
         # Set self.waypoints
         self.waypoints = waypoints
-        # TODO: send waypoints to sim (this is just for visualization of waypoints)
-        self.send_waypoints()
 
-        # ########################3
-        # # Define a grid for a particular altitude and safety margin around obstacles
-        # grid, north_offset, east_offset = create_grid(data, TARGET_ALTITUDE, SAFETY_DISTANCE)
-        # print("North offset = {0}, east offset = {1}".format(north_offset, east_offset))
-        # # Define starting point on the grid (this is just grid center)
-        # grid_start = (-north_offset, -east_offset)
-        # # TODO: convert start position to current position rather than map center
-        
-        # # Set goal as some arbitrary position on the grid
-        # grid_goal = (-north_offset + 10, -east_offset + 10)
-        # # TODO: adapt to set goal as latitude / longitude position and convert
-
-        # # Run A* to find a path from start to goal
-        # # TODO: add diagonal motions with a cost of sqrt(2) to your A* implementation
-        # # or move to a different search space such as a graph (not done here)
-        # print('Local Start and Goal: ', grid_start, grid_goal)
-        # path, _ = a_star(grid, heuristic, grid_start, grid_goal)
-        # # TODO: prune path to minimize number of waypoints
-        # # TODO (if you're feeling ambitious): Try a different approach altogether!
-
-        # # Convert path to waypoints
-        # waypoints = [[p[0] + north_offset, p[1] + east_offset, TARGET_ALTITUDE, 0] for p in path]
-        # # Set self.waypoints
-        # self.waypoints = waypoints
-        # # TODO: send waypoints to sim (this is just for visualization of waypoints)
-        # self.send_waypoints()
+        self.flight_state = States.PLANNING
 
     def start(self):
         self.start_log("Logs", "NavLog.txt")
@@ -290,8 +222,10 @@ if __name__ == "__main__":
     parser.add_argument('--host', type=str, default='127.0.0.1', help="host address, i.e. '127.0.0.1'")
     args = parser.parse_args()
 
-    conn = MavlinkConnection('tcp:{0}:{1}'.format(args.host, args.port), timeout=60)
-    drone = MotionPlanning(conn)
+    graph = precompute_graph()
+
+    conn = MavlinkConnection('tcp:{0}:{1}'.format(args.host, args.port), timeout=600)
+    drone = MotionPlanning(conn, graph)
     time.sleep(1)
 
     drone.start()

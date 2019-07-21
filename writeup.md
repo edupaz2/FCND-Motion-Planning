@@ -73,29 +73,34 @@ We precompute a flying node graph, from the grid data, for later used when findi
 ![Voronoi Graph](./misc/voronoi.png)
 ![Voronoi Graph A* search](./misc/voronoi.astar.png)
 
+#### 0. Precomputing the graph
+We are loading a precomputed node graph as the first step.
+NOTE: Loading the graph inside the Drone class was painfully slow.
+
 #### 1. Set your global home position
-We read the global home location from the first line of the colliders.csv file and set that position as global home (self.set_home_position()) in [source](./motion_planning.py#L205)
+We read the global home location from the first line of the colliders.csv file and set that position as global home (self.set_home_position()) in [source](./motion_planning.py#L141)
 
 #### 2. Set your current local position
-We determine the drone local position relative to global home calling the function ```global_to_local``` in [source](./motion_planning.py#L210)
+We determine the drone local position relative to global home calling the function ```global_to_local``` in [source](./motion_planning.py#L144)
 
 #### 3. Set grid start position from local position
-Another step for adding flexibility to the start location at [source](./motion_planning.py#L232)
+Another step for adding flexibility to the start location, now we are selecting the start position where the drone is located at and finding the closest graph node to that drone location, [source](./motion_planning.py#L157)
 
 #### 4. Set grid goal position from geodetic coords
-This step is to add flexibility to the desired goal location. Should be able to choose any (lat, lon) within the map and have it rendered to a goal location on the grid.
+To add more flexibility in choosing the goal location, now it's a random node of the graph, [source](./motion_planning.py#L180)
 
 #### 5. Modify A* to include diagonal motion (or replace A* altogether)
-Minimal requirement here is to modify the code in planning_utils() to update the A* implementation to include diagonal motions on the grid that have a cost of sqrt(2), but more creative solutions are welcome. Explain the code you used to accomplish this step.
+We are using A* for graphs [source](./motion_planning.py#L159), calling the function ```a_star_graph``` from [planning_utils.py](./planning_utils.py)
 
 #### 6. Cull waypoints 
-For this step you can use a collinearity test or ray tracing method like Bresenham. The idea is simply to prune your path of unnecessary waypoints. Explain the code you used to accomplish this step.
-
+After calculating A* path, we get rid of unnecessary waypoints (those that meet bresenham conditions with previous neighbours), [source](./motion_planning.py#L163)
 
 
 ### Execute the flight
 #### 1. Does it work?
 It works!
+
+![Simulator](./misc/simulator.gif)
 
 ### Double check that you've met specifications for each of the [rubric](https://review.udacity.com/#!/rubrics/1534/view) points.
   
